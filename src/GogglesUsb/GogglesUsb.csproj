@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>GogglesUsb</AssemblyName>
+    <RootNamespace>GogglesUsb</RootNamespace>
+    <Product>GogglesUsb</Product>
+    <AssemblyTitle>GogglesUsb · 大疆眼镜投屏（Sunshine + moonlight 转发）</AssemblyTitle>
+    <Version>2.0.0</Version>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <DebugType>embedded</DebugType>
+    <NoWarn>$(NoWarn);WFO1000;WFO0003</NoWarn>
+  </PropertyGroup>
+
+</Project>
+

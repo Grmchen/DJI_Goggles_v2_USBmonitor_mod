@@ -1,0 +1,43 @@
+﻿name: build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Show SDK
+        run: dotnet --list-sdks
+
+      - name: Build
+        run: dotnet build src/GogglesUsb/GogglesUsb.csproj -c Release --nologo
+
+      - name: Self-test
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $exe = "src/GogglesUsb/bin/Release/net10.0-windows/GogglesUsb.exe"
+          $env:GOGGLESUSB_HOME = Join-Path $env:RUNNER_TEMP "gu"
+          New-Item -ItemType Directory -Force -Path $env:GOGGLESUSB_HOME | Out-Null
+          $p = Start-Process -FilePath $exe -ArgumentList '--selftest' -PassThru -Wait
+          Write-Host "exit=$($p.ExitCode)"
+          $log = "src/GogglesUsb/bin/Release/net10.0-windows/selftest.txt"
+          if (Test-Path $log) { Get-Content $log } else { Write-Host "no selftest.txt (skipped)" }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GogglesUsb-win-x64
+          path: |
+            src/GogglesUsb/bin/Release/net10.0-windows/GogglesUsb.exe
+            src/GogglesUsb/bin/Release/net10.0-windows/GogglesUsb.dll
+            src/GogglesUsb/bin/Release/net10.0-windows/GogglesUsb.deps.json
+            src/GogglesUsb/bin/Release/net10.0-windows/GogglesUsb.runtimeconfig.json
