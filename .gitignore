@@ -9,14 +9,10 @@
 *.sln.docstates
 .vs/
 *.cache
-
-## 构建产物
 dist/
 publish/
 *.pdb
 *.nupkg
-
-## 杂项
 .DS_Store
 Thumbs.db
 *.log
