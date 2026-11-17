@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>小游戏合集｜标签切换版</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:system-ui}
+body{background:#000;color:#fff;padding:12px}
+.tab-bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.tab-btn{padding:6px 10px;border:none;background:#222;color:#ccc;border-radius:4px;cursor:pointer}
+.tab-btn.active{background:#258;color:#fff}
+.wrap{display:none;flex-direction:column;align-items:center}
+.wrap.active{display:flex}
+canvas{border:2px solid #333;background:#000}
+.info{margin-bottom:6px;font-size:14px}
+button{margin-top:6px;padding:5px 10px;font-size:13px;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="tab-bar">
+  <button class="tab-btn" data-id="plane">✈️飞机大战</button>
+  <button class="tab-btn" data-id="tet">🧱俄罗斯方块</button>
+  <button class="tab-btn" data-id="snake">🐍贪吃蛇</button>
+  <button class="tab-btn" data-id="brick">🧱打砖块</button>
+  <button class="tab-btn" data-id="g2048">🔢2048</button>
+  <button class="tab-btn" data-id="tic">⭕井字棋</button>
+  <button class="tab-btn" data-id="pong">🏓Pong乒乓</button>
+  <button class="tab-btn" data-id="mine">💣扫雷</button>
+  <button class="tab-btn" data-id="fruit">🍎接水果</button>
+  <button class="tab-btn" data-id="guess">🔢猜数字</button>
+</div>
+
+<!-- 飞机大战 -->
+<div class="wrap" id="plane">
+  <div class="info">✈️飞机大战 分数：<span id="scoreP">0</span> HP:<span id="hpP">3</span></div>
+  <canvas id="planeCanvas" width="240" height="400"></canvas>
+  <button id="btnPlane">重开</button>
+</div>
+
+<!-- 俄罗斯方块 -->
+<div class="wrap" id="tet">
+  <div class="info">🧱俄罗斯方块 分数：<span id="scoreT">0</span></div>
+  <canvas id="tetCanvas" width="160" height="320"></canvas>
+  <button id="btnTet">重开</button>
+</div>
+
+<!-- 贪吃蛇 -->
+<div class="wrap" id="snake">
+  <div class="info">🐍贪吃蛇 分数：<span id="scoreS">0</span></div>
+  <canvas id="snakeCanvas" width="220" height="220"></canvas>
+  <button id="btnSnake">重开</button>
+</div>
+
+<!-- 打砖块 -->
+<div class="wrap" id="brick">
+  <div class="info">🧱打砖块 分数：<span id="scoreB">0</span></div>
+  <canvas id="brickCanvas" width="240" height="400"></canvas>
+  <button id="btnBrick">重开</button>
+</div>
+
+<!-- 2048 -->
+<div class="wrap" id="g2048">
+  <div class="info">🔢2048 分数：<span id="score2048">0</span></div>
+  <canvas id="canvas2048" width="220" height="220"></canvas>
+  <button id="btn2048">重开</button>
+</div>
+
+<!-- 井字棋 -->
+<div class="wrap" id="tic">
+  <div class="info">⭕井字棋</div>
+  <canvas id="ticCanvas" width="220" height="220"></canvas>
+  <button id="btnTic">重开</button>
+</div>
+
+<!-- 乒乓Pong -->
+<div class="wrap" id="pong">
+  <div class="info">🏓Pong 左:<span id="pongL">0</span> 右:<span id="pongR">0</span></div>
+  <canvas id="pongCanvas" width="240" height="400"></canvas>
+  <button id="btnPong">重开</button>
+</div>
+
+<!-- 扫雷 -->
+<div class="wrap" id="mine">
+  <div class="info">💣扫雷</div>
+  <canvas id="mineCanvas" width="220" height="220"></canvas>
+  <button id="btnMine">重开</button>
+</div>
+
+<!-- 接水果 -->
+<div class="wrap" id="fruit">
+  <div class="info">🍎接水果 分数：<span id="scoreFruit">0</span></div>
+  <canvas id="fruitCanvas" width="240" height="400"></canvas>
+  <button id="btnFruit">重开</button>
+</div>
+
+<!-- 猜数字 -->
+<div class="wrap" id="guess">
+  <div class="info">🔢猜数字</div>
+  <canvas id="guessCanvas" width="220" height="220"></canvas>
+  <button id="btnGuess">重开</button>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+let activeGameId = "plane";
+// 标签切换
+$(".tab-bar").addEventListener("click",e=>{
+  if(e.target.classList.contains("tab-btn")){
+    const id = e.target.dataset.id;
+    document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+    document.querySelectorAll(".wrap").forEach(w=>w.classList.remove("active"));
+    e.target.classList.add("active");
+    $("#"+id).classList.add("active");
+    activeGameId = id;
+  }
+})
+// 默认激活第一个
+$('[data-id="plane"]').classList.add("active");
+$("#plane").classList.add("active");
+
+// ========== 飞机大战 ==========
+const planeCanvas = $("#planeCanvas");
+const planeCtx = planeCanvas.getContext("2d");
+let shakeTime = 0, shakeMag = 0, flashTime = 0;
+const player = {x:planeCanvas.width/2-22,y:planeCanvas.height-70,w:44,h:44,speed:4,hp:3,shootCd:0};
+let scoreP=0,planeOver=false,spawnTimer=0,spawnInterval=80;
+const bullets=[],enemies=[],particles=[],trails=[],stars=[];
+const keys={};
+for(let i=0;i<60;i++) stars.push({x:Math.random()*planeCanvas.width,y:Math.random()*planeCanvas.height,size:Math.random()*1.4+0.3,spd:Math.random()*0.5+0.15});
+window.addEventListener("keydown",e=>{keys[e.key.toLowerCase()]=true;if(e.code==="Space"){keys.space=true;e.preventDefault();}});
+window.addEventListener("keyup",e=>{keys[e.key.toLowerCase()]=false;if(e.code==="Space")keys.space=false;});
+function rectHit(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;}
+function shake(t,m){shakeTime=t;shakeMag=m;}
+function flash(t){flashTime=t;}
+function spawnEnemy(){if(planeOver)return;enemies.push({x:Math.random()*(planeCanvas.width-36),y:-40,w:36,h:36,hp:1,speed:1.1+Math.random()*0.7});}
+function spawnExplosion(x,y,c1,c2){for(let i=0;i<24;i++){const ang=(Math.PI*2/24)*i+Math.random()*0.3;const spd=Math.random()*3+1.5;particles.push({x,y,vx:Math.cos(ang)*spd,vy:Math.sin(ang)*spd,life:35+Math.random()*10,maxLife:45,size:Math.random()*2.5+1,color:Math.random()<0.5?c1:c2});}for(let i=0;i<10;i++)particles.push({x,y,vx:(Math.random()-0.5)*2,vy:(Math.random()-0.5)*2,life:20,maxLife:20,size:Math.random()*4+2,color:"#fff7a8"});shake(12,4);flash(8);}
+function spawnHitSparks(x,y){for(let i=0;i<10;i++)particles.push({x,y,vx:(Math.random()-0.5)*4,vy:(Math.random()-0.5)*4,life:12+Math.random()*8,maxLife:20,size:Math.random()*2+1,color:Math.random()<0.5?"#ffd76b":"#ff7b5c"});}
+function drawPlayer(){planeCtx.save();const flameH=10+Math.random()*8;planeCtx.fillStyle="#5ec8ff";planeCtx.beginPath();planeCtx.moveTo(player.x+14,player.y+player.h);planeCtx.lineTo(player.x+22,player.y+player.h+flameH);planeCtx.lineTo(player.x+30,player.y+player.h);planeCtx.closePath();planeCtx.fill();planeCtx.fillStyle="#fff7a8";planeCtx.beginPath();planeCtx.moveTo(player.x+17,player.y+player.h);planeCtx.lineTo(player.x+22,player.y+player.h+flameH*0.6);planeCtx.lineTo(player.x+27,player.y+player.h);planeCtx.closePath();planeCtx.fill();planeCtx.fillStyle="#4af";planeCtx.beginPath();planeCtx.moveTo(player.x+player.w/2,player.y);planeCtx.lineTo(player.x,player.y+player.h);planeCtx.lineTo(player.x+player.w,player.y+player.h);planeCtx.closePath();planeCtx.fill();planeCtx.fillStyle="#fff";planeCtx.beginPath();planeCtx.arc(player.x+player.w/2,player.y+18,4,0,Math.PI*2);planeCtx.fill();planeCtx.restore();}
+function drawEnemy(e){planeCtx.save();planeCtx.shadowBlur=10;planeCtx.shadowColor="#ff4466";planeCtx.fillStyle="#ff4466";planeCtx.beginPath();planeCtx.moveTo(e.x+e.w/2,e.y+e.h);planeCtx.lineTo(e.x,e.y);planeCtx.lineTo(e.x+e.w,e.y);planeCtx.closePath();planeCtx.fill();planeCtx.shadowBlur=0;planeCtx.fillStyle="#ffd76b";planeCtx.beginPath();planeCtx.arc(e.x+e.w/2,e.y+e.h/2,4,0,Math.PI*2);planeCtx.fill();planeCtx.restore();}
+function planeUpdate(){if(planeOver)return;stars.forEach(s=>{s.y+=s.spd;if(s.y>planeCanvas.height){s.y=0;s.x=Math.random()*planeCanvas.width;}});if(keys.w&&player.y>0)player.y-=player.speed;if(keys.s&&player.y<planeCanvas.height-player.h)player.y+=player.speed;if(keys.a&&player.x>0)player.x-=player.speed;if(keys.d&&player.x<planeCanvas.width-player.w)player.x+=player.speed;player.shootCd--;if(keys.space&&player.shootCd<=0){bullets.push({x:player.x+player.w/2-3,y:player.y-10,w:6,h:14,speed:7});player.shootCd=10;}bullets.forEach(b=>trails.push({x:b.x+b.w/2,y:b.y+b.h,life:14,maxLife:14,size:3}));for(let i=bullets.length-1;i>=0;i--){bullets[i].y-=bullets[i].speed;if(bullets[i].y<-20)bullets.splice(i,1);}spawnTimer++;if(spawnTimer>=spawnInterval){spawnTimer=0;spawnEnemy();}for(let i=enemies.length-1;i>=0;i--){const e=enemies[i];e.y+=e.speed;if(e.y>planeCanvas.height+40){enemies.splice(i,1);continue;}for(let j=bullets.length-1;j>=0;j--){if(rectHit(bullets[j],e)){bullets.splice(j,1);spawnHitSparks(e.x+e.w/2,e.y+e.h/2);if(e.hp<=1){spawnExplosion(e.x+e.w/2,e.y+e.h/2,"#ff9f43","#ff4757");enemies.splice(i,1);scoreP+=10;$("#scoreP").textContent=scoreP;}else e.hp--;break;}}if(rectHit(e,player)){spawnExplosion(player.x+player.w/2,player.y+player.h/2,"#74b9ff","#4af");enemies.splice(i,1);player.hp--;$("#hpP").textContent=player.hp;if(player.hp<=0){player.hp=0;planeOver=true;shake(30,8);flash(20);}}}for(let i=particles.length-1;i>=0;i--){const p=particles[i];p.x+=p.vx;p.y+=p.vy;p.vx*=0.96;p.vy*=0.96;p.life--;if(p.life<=0)particles.splice(i,1);}for(let i=trails.length-1;i>=0;i--){trails[i].life--;if(trails[i].life<=0)trails.splice(i,1);}if(shakeTime>0)shakeTime--;if(flashTime>0)flashTime--;}
+function planeDraw(){planeCtx.save();if(shakeTime>0)planeCtx.translate((Math.random()-0.5)*shakeMag,(Math.random()-0.5)*shakeMag);planeCtx.fillStyle="#05070d";planeCtx.fillRect(-20,-20,planeCanvas.width+40,planeCanvas.height+40);planeCtx.fillStyle="#fff";stars.forEach(s=>{planeCtx.globalAlpha=0.4+s.size*0.3;planeCtx.beginPath();planeCtx.arc(s.x,s.y,s.size,0,Math.PI*2);planeCtx.fill();});planeCtx.globalAlpha=1;trails.forEach(t=>{const a=t.life/t.maxLife;planeCtx.fillStyle=`rgba(120,200,255,${a*0.8})`;planeCtx.beginPath();planeCtx.arc(t.x,t.y,t.size*a,0,Math.PI*2);planeCtx.fill();});planeCtx.shadowBlur=8;planeCtx.shadowColor="#7dfcff";planeCtx.fillStyle="#c7f7ff";bullets.forEach(b=>planeCtx.fillRect(b.x,b.y,b.w,b.h));planeCtx.shadowBlur=0;enemies.forEach(drawEnemy);if(!planeOver)drawPlayer();particles.forEach(p=>{const a=Math.max(0,p.life/p.maxLife);planeCtx.globalAlpha=a;planeCtx.fillStyle=p.color;planeCtx.beginPath();planeCtx.arc(p.x,p.y,p.size,0,Math.PI*2);planeCtx.fill();});planeCtx.globalAlpha=1;if(flashTime>0){planeCtx.fillStyle=`rgba(255,255,255,${flashTime/30})`;planeCtx.fillRect(-20,-20,planeCanvas.width+40,planeCanvas.height+40);}planeCtx.restore();if(planeOver){planeCtx.fillStyle="rgba(0,0,0,0.75)";planeCtx.fillRect(0,0,planeCanvas.width,planeCanvas.height);planeCtx.fillStyle="#fff";planeCtx.font="bold 20px system-ui";planeCtx.textAlign="center";planeCtx.fillText("游戏结束",planeCanvas.width/2,planeCanvas.height/2-10);planeCtx.font="14px system-ui";planeCtx.fillText("分数："+scoreP,planeCanvas.width/2,planeCanvas.height/2+20);}}
+$("#btnPlane").onclick=()=>{player.x=planeCanvas.width/2-player.w/2;player.y=planeCanvas.height-70;player.hp=3;player.shootCd=0;scoreP=0;planeOver=false;spawnTimer=0;bullets.length=0;enemies.length=0;particles.length=0;trails.length=0;$("#scoreP").textContent=scoreP;$("#hpP").textContent=player.hp;}
+
+// ========== 俄罗斯方块 ==========
+const tetCanvas = $("#tetCanvas");
+const tetCtx = tetCanvas.getContext("2d");
+const BLOCK_SIZE=16,COLS=8,ROWS=18;
+const SHAPES=[[[1,1,1,1]],[[1,1],[1,1]],[[0,1,0],[1,1,1]],[[1,0,0],[1,1,1]],[[0,0,1],[1,1,1]],[[1,1,0],[0,1,1]],[[0,1,1],[1,1,0]]];
+const COLORS=["#00ffff","#ffff00","#9900ff","#0000ff","#ff7700","#00ff00","#ff0000"];
+let scoreT=0,tetOver=false,board=Array(ROWS).fill().map(()=>Array(COLS).fill(0)),curShape,curX,curY,curColor,tetTimer=0,tetSpeed=45;
+function newPiece(){const idx=Math.floor(Math.random()*SHAPES.length);curShape=SHAPES[idx];curColor=COLORS[idx];curX=Math.floor(COLS/2-curShape[0].length/2);curY=0;if(checkCollisionTet(curX,curY,curShape))tetOver=true;}
+function checkCollisionTet(x,y,shape){for(let r=0;r<shape.length;r++){for(let c=0;c<shape[r].length;c++){if(shape[r][c]){let nx=x+c,ny=y+r;if(nx<0||nx>=COLS||ny>=ROWS||(ny>=0&&board[ny][nx]))return true;}}}return false;}
+function rotateS(s){const res=[];for(let c=0;c<s[0].length;c++){const nr=[];for(let r=s.length-1;r>=0;r--)nr.push(s[r][c]);res.push(nr);}return res;}
+function lockPiece(){for(let r=0;r<curShape.length;r++){for(let c=0;c<curShape[r].length;c++){if(curShape[r][c])board[curY+r][curX+c]=curColor;}}let clear=0;for(let r=ROWS-1;r>=0;r--){if(board[r].every(x=>x!==0)){board.splice(r,1);board.unshift(Array(COLS).fill(0));r++;clear++;}}if(clear>0){scoreT+=clear*100;$("#scoreT").textContent=scoreT;}newPiece();}
+function tetUpdate(){if(tetOver)return;tetTimer++;if(tetTimer>=tetSpeed){tetTimer=0;if(!checkCollisionTet(curX,curY+1,curShape))curY++;else lockPiece();}}
+function tetDraw(){tetCtx.fillStyle="#111";tetCtx.fillRect(0,0,tetCanvas.width,tetCanvas.height);for(let r=0;r<ROWS;r++){for(let c=0;c<COLS;c++){if(board[r][c]){tetCtx.fillStyle=board[r][c];tetCtx.fillRect(c*BLOCK_SIZE,r*BLOCK_SIZE,BLOCK_SIZE-1,BLOCK_SIZE-1);}}}if(!tetOver){tetCtx.fillStyle=curColor;for(let r=0;r<curShape.length;r++){for(let c=0;c<curShape[r].length;c++){if(curShape[r][c])tetCtx.fillRect((curX+c)*BLOCK_SIZE,(curY+r)*BLOCK_SIZE,BLOCK_SIZE-1,BLOCK_SIZE-1);}}}if(tetOver){tetCtx.fillStyle="rgba(0,0,0,0.7)";tetCtx.fillRect(0,0,tetCanvas.width,tetCanvas.height);tetCtx.fillStyle="#fff";tetCtx.font="bold 16px system-ui";tetCtx.textAlign="center";tetCtx.fillText("结束",tetCanvas.width/2,tetCanvas.height/2);}}
+document.addEventListener("keydown",e=>{if(tetOver)return;if(e.code==="ArrowLeft"&&!checkCollisionTet(curX-1,curY,curShape))curX--;if(e.code==="ArrowRight"&&!checkCollisionTet(curX+1,curY,curShape))curX++;if(e.code==="ArrowDown"&&!checkCollisionTet(curX,curY+1,curShape))curY++;if(e.code==="ArrowUp"){const ns=rotateS(curShape);if(!checkCollisionTet(curX,curY,ns))curShape=ns;}if(e.code==="Space"){while(!checkCollisionTet(curX,curY+1,curShape))curY++;lockPiece();}});
+$("#btnTet").onclick=()=>{scoreT=0;tetOver=false;tetTimer=0;board=Array(ROWS).fill().map(()=>Array(COLS).fill(0));newPiece();$("#scoreT").textContent=scoreT;}
+newPiece();
+
+// ========== 贪吃蛇 ==========
+const snakeCanvas = $("#snakeCanvas");
+const snakeCtx = snakeCanvas.getContext("2d");
+const SNAKE_SIZE=16;
+let scoreS=0,snakeOver=false,snake=[{x:4,y:4}],dir={x:1,y:0},nextDir={x:1,y:0},food={x:0,y:0},snakeTimer=0,snakeSpeed=12;
+function spawnFood(){let nx,ny;do{nx=Math.floor(Math.random()*(snakeCanvas.width/SNAKE_SIZE));ny=Math.floor(Math.random()*(snakeCanvas.height/SNAKE_SIZE));}while(snake.some(p=>p.x===nx&&p.y===ny));food={x:nx,y:ny};}
+function snakeUpdate(){if(snakeOver)return;snakeTimer++;if(snakeTimer>=snakeSpeed){snakeTimer=0;dir={...nextDir};const head={x:snake[0].x+dir.x,y:snake[0].y+dir.y};if(head.x<0||head.y<0||head.x>=snakeCanvas.width/SNAKE_SIZE||head.y>=snakeCanvas.height/SNAKE_SIZE||snake.some(p=>p.x===head.x&&p.y===head.y)){snakeOver=true;return;}snake.unshift(head);if(head.x===food.x&&head.y===food.y){scoreS+=10;$("#scoreS").textContent=scoreS;spawnFood();}else snake.pop();}}
+function snakeDraw(){snakeCtx.fillStyle="#000";snakeCtx.fillRect(0,0,snakeCanvas.width,snakeCanvas.height);snakeCtx.fillStyle="#3f3";snake.forEach((p,i)=>{snakeCtx.fillRect(p.x*SNAKE_SIZE,p.y*SNAKE_SIZE,SNAKE_SIZE-1,SNAKE_SIZE-1);});snakeCtx.fillStyle="#f33";snakeCtx.fillRect(food.x*SNAKE_SIZE,food.y*SNAKE_SIZE,SNAKE_SIZE-1,SNAKE_SIZE-1);if(snakeOver){snakeCtx.fillStyle="rgba(0,0,0,0.7)";snakeCtx.fillRect(0,0,snakeCanvas.width,snakeCanvas.height);snakeCtx.fillStyle="#fff";snakeCtx.font="bold 18px system-ui";snakeCtx.textAlign="center";snakeCtx.fillText("游戏结束",snakeCanvas.width/2,snakeCanvas.height/2);}}
+document.addEventListener("keydown",e=>{if(snakeOver)return;if(e.code==="ArrowUp"&&dir.y!==1)nextDir={x:0,y:-1};if(e.code==="ArrowDown"&&dir.y!==-1)nextDir={x:0,y:1};if(e.code==="ArrowLeft"&&dir.x!==1)nextDir={x:-1,y:0};if(e.code==="ArrowRight"&&dir.x!==-1)nextDir={x:1,y:0};});
+$("#btnSnake").onclick=()=>{scoreS=0;snakeOver=false;snake=[{x:4,y:4}];dir={x:1,y:0};nextDir={x:1,y:0};snakeTimer=0;spawnFood();$("#scoreS").textContent=scoreS;}
+spawnFood();
+
+// ========== 打砖块 ==========
+const brickCanvas = $("#brickCanvas");
+const brickCtx = brickCanvas.getContext("2d");
+let scoreB=0,brickOver=false,brickReady=false,ball={x:brickCanvas.width/2,y:brickCanvas.height-60,r:6,vx:3,vy:-3},paddle={x:brickCanvas.width/2-35,y:brickCanvas.height-20,w:70,h:10},bricks=[];
+function initBricks(){bricks=[];for(let r=0;r<4;r++){for(let c=0;c<6;c++){bricks.push({x:c*40+10,y:r*20+20,w:36,h:16,alive:true});}}}
+function brickUpdate(){if(brickOver||!brickReady)return;ball.x+=ball.vx;ball.y+=ball.vy;if(ball.x-ball.r<0||ball.x+ball.r>brickCanvas.width)ball.vx*=-1;if(ball.y-ball.r<0)ball.vy*=-1;if(ball.y+ball.r>brickCanvas.height){brickOver=true;return;}if(ball.x>paddle.x&&ball.x<paddle.x+paddle.w&&ball.y+ball.r>paddle.y){ball.vy=-Math.abs(ball.vy);}bricks.forEach(b=>{if(b.alive&&ball.x>b.x&&ball.x<b.x+b.w&&ball.y-ball.r<b.y+b.h&&ball.y+ball.r>b.y){b.alive=false;ball.vy*=-1;scoreB+=15;$("#scoreB").textContent=scoreB;}});if(bricks.every(x=>!x.alive)){initBricks();}}
+function brickDraw(){brickCtx.fillStyle="#000";brickCtx.fillRect(0,0,brickCanvas.width,brickCanvas.height);brickCtx.fillStyle="#4af";brickCtx.fillRect(paddle.x,paddle.y,paddle.w,paddle.h);brickCtx.fillStyle="#ff3";brickCtx.beginPath();brickCtx.arc(ball.x,ball.y,ball.r,0,Math.PI*2);brickCtx.fill();bricks.forEach(b=>{if(b.alive){brickCtx.fillStyle="#f55";brickCtx.fillRect(b.x,b.y,b.w,b.h);}});if(brickOver){brickCtx.fillStyle="rgba(0,0,0,0.7)";brickCtx.fillRect(0,0,brickCanvas.width,brickCanvas.height);brickCtx.fillStyle="#fff";brickCtx.font="bold 18px system-ui";brickCtx.textAlign="center";brickCtx.fillText("游戏结束",brickCanvas.width/2,brickCanvas.height/2);}}
+document.addEventListener("keydown",e=>{if(e.key.toLowerCase()==="a"&&paddle.x>0)paddle.x-=8;if(e.key.toLowerCase()==="d"&&paddle.x+paddle.w<brickCanvas.width)paddle.x+=8;if(e.code==="Space"&&!brickReady&&!brickOver){brickReady=true;}});
+$("#btnBrick").onclick=()=>{scoreB=0;brickOver=false;brickReady=false;ball={x:brickCanvas.width/2,y:brickCanvas.height-60,r:6,vx:3,vy:-3};paddle={x:brickCanvas.width/2-35,y:brickCanvas.height-20,w:70,h:10};initBricks();$("#scoreB").textContent=scoreB;}
+initBricks();
+
+// ========== 2048 ==========
+const canvas2048 = $("#canvas2048");
+const ctx2048 = canvas2048.getContext("2d");
+let score2048 = 0, grid2048, gameOver2048;
+const size2048 = 4, cell2048 = 50;
+const colors2048 = {0:"#222",2:"#eee4da",4:"#ede0c8",8:"#f2b179",16:"#f59563",32:"#f67c5f",64:"#f65e3b",128:"#edcf72",256:"#edcc61",512:"#edc850",1024:"#edc53f",2048:"#edc22e"};
+function reset2048(){score2048=0;gameOver2048=false;grid2048=Array(size2048).fill().map(()=>Array(size2048).fill(0));addRand2048();addRand2048();$("#score2048").textContent=score2048;}
+function addRand2048(){let av=[];for(let r=0;r<size2048;r++)for(let c=0;c<size2048;c++)if(grid2048[r][c]===0)av.push([r,c]);if(av.length===0)return;let [r,c]=av[Math.floor(Math.random()*av.length)];grid2048[r][c]=Math.random()<0.9?2:4;}
+function slideLine(arr){let n=arr.filter(x=>x!==0);for(let i=0;i<n.length-1;i++)if(n[i]===n[i+1]){n[i]*=2;score2048+=n[i];n.splice(i+1,1);}while(n.length<4)n.push(0);return n;}
+function move2048(dir){let old=JSON.parse(JSON.stringify(grid2048));if(dir==="up"){for(let c=0;c<4;c++){let col=[];for(let r=0;r<4;r++)col.push(grid2048[r][c]);col=slideLine(col);for(let r=0;r<4;r++)grid2048[r][c]=col[r];}}if(dir==="down"){for(let c=0;c<4;c++){let col=[];for(let r=3;r>=0;r--)col.push(grid2048[r][c]);col=slideLine(col);for(let r=3;r>=0;r--)grid2048[r][c]=col[3-r];}}if(dir==="left"){for(let r=0;r<4;r++)grid2048[r]=slideLine(grid2048[r]);}if(dir==="right"){for(let r=0;r<4;r++){let rev=grid2048[r].reverse();rev=slideLine(rev);grid2048[r]=rev.reverse();}}if(JSON.stringify(old)!==JSON.stringify(grid2048)){addRand2048();$("#score2048").textContent=score2048;checkOver2048();}}
+function checkOver2048(){for(let r=0;r<4;r++)for(let c=0;c<4;c++){if(grid2048[r][c]===0)return;if(c<3&&grid2048[r][c]===grid2048[r][c+1])return;if(r<3&&grid2048[r][c]===grid2048[r+1][c])return;}gameOver2048=true;}
+function draw2048(){ctx2048.fillStyle="#111";ctx2048.fillRect(0,0,canvas2048.width,canvas2048.height);for(let r=0;r<4;r++){for(let c=0;c<4;c++){let v=grid2048[r][c];ctx2048.fillStyle=colors2048[v]||"#000";ctx2048.fillRect(c*cell2048+4,r*cell2048+4,cell2048-6,cell2048-6);if(v!==0){ctx2048.fillStyle="#000";ctx2048.font="bold 18px system-ui";ctx2048.textAlign="center";ctx2048.fillText(v,c*cell2048+cell2048/2,r*cell2048+cell2048/2+6);}}}if(gameOver2048){ctx2048.fillStyle="rgba(0,0,0,0.7)";ctx2048.fillRect(0,0,canvas2048.width,canvas2048.height);ctx2048.fillStyle="#fff";ctx2048.font="bold 20px system-ui";ctx2048.textAlign="center";ctx2048.fillText("Game Over",canvas2048.width/2,canvas2048.height/2);}}
+document.addEventListener("keydown",e=>{if(gameOver2048)return;if(e.code==="ArrowUp")move2048("up");if(e.code==="ArrowDown")move2048("down");if(e.code==="ArrowLeft")move2048("left");if(e.code==="ArrowRight")move2048("right");});
+$("#btn2048").onclick=reset2048;
+reset2048();
+
+// ========== 井字棋 ==========
+const ticCanvas = $("#ticCanvas");
+const ticCtx = ticCanvas.getContext("2d");
+let ticBoard = Array(9).fill(null);
+let ticTurn = "X", ticEnd = false;
+function resetTic(){ticBoard = Array(9).fill(null);ticTurn="X";ticEnd=false;}
+function checkWin(b){const w=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];for(let [a,b1,c] of w)if(b[a]&&b[a]===b[b1]&&b[a]===b[c])return b[a];return null;}
+ticCanvas.onclick = e=>{if(ticEnd)return;const rect=ticCanvas.getBoundingClientRect();const x=e.clientX-rect.left,y=e.clientY-rect.top;const cx=Math.floor(x/(ticCanvas.width/3)),cy=Math.floor(y/(ticCanvas.height/3));const idx=cy*3+cx;if(ticBoard[idx])return;ticBoard[idx]=ticTurn;let w=checkWin(ticBoard);if(w){ticEnd=true;return;}ticTurn=ticTurn==="X"?"O":"X";if(!ticBoard.includes(null))ticEnd=true;}
+function drawTic(){ticCtx.fillStyle="#000";ticCtx.fillRect(0,0,ticCanvas.width,ticCanvas.height);ticCtx.strokeStyle="#fff";ticCtx.lineWidth=2;const s=ticCanvas.width/3;ticCtx.beginPath();ticCtx.moveTo(s,0);ticCtx.lineTo(s,ticCanvas.height);ticCtx.moveTo(s*2,0);ticCtx.lineTo(s*2,ticCanvas.height);ticCtx.moveTo(0,s);ticCtx.lineTo(ticCanvas.width,s);ticCtx.moveTo(0,s*2);ticCtx.lineTo(ticCanvas.width,s*2);ticCtx.stroke();ticCtx.font="bold 40px system-ui";ticCtx.textAlign="center";ticCtx.textBaseline="middle";for(let i=0;i<9;i++){let v=ticBoard[i];if(v){let cx=(i%3)*s+s/2,cy=Math.floor(i/3)*s+s/2;ticCtx.fillStyle=v==="X"?"#4af":"#f55";ticCtx.fillText(v,cx,cy);}}if(ticEnd){let w=checkWin(ticBoard);ticCtx.fillStyle="rgba(0,0,0,0.6)";ticCtx.fillRect(0,0,ticCanvas.width,ticCanvas.height);ticCtx.fillStyle="#fff";ticCtx.font="bold 22px system-ui";ticCtx.textAlign="center";if(w)ticCtx.fillText(w+" 胜",ticCanvas.width/2,ticCanvas.height/2);else ticCtx.fillText("平局",ticCanvas.width/2,ticCanvas.height/2);}}
+$("#btnTic").onclick=resetTic;
+resetTic();
+
+// ========== Pong乒乓 ==========
+const pongCanvas = $("#pongCanvas");
+const pongCtx = pongCanvas.getContext("2d");
+let pongL=0,pongR=0;
+const pong={x:pongCanvas.width/2,y:pongCanvas.height/2,r:6,vx:4,vy:3};
+const padL={x:8,y:pongCanvas.height/2-25,w:10,h:50,speed:6};
+const padR={x:pongCanvas.width-18,y:pongCanvas.height/2-25,w:10,h:50,speed:6};
+const pongKeys={};
+function resetPong(){pong.x=pongCanvas.width/2;pong.y=pongCanvas.height/2;pong.vx=Math.random()>0.5?4:-4;pong.vy=3;padL.y=pongCanvas.height/2-25;padR.y=pongCanvas.height/2-25;$("#pongL").textContent=pongL;$("#pongR").textContent=pongR;}
+function pongUpdate(){if(pongKeys.w&&padL.y>0)padL.y-=padL.speed;if(pongKeys.s&&padL.y+padL.h<pongCanvas.height)padL.y+=padL.speed;if(pongKeys.ArrowUp&&padR.y>0)padR.y-=padR.speed;if(pongKeys.ArrowDown&&padR.y+padR.h<pongCanvas.height)padR.y+=padR.speed;
+pong.x+=pong.vx;pong.y+=pong.vy;
+if(pong.y-pong.r<0||pong.y+pong.r>pongCanvas.height)pong.vy*=-1;
+if(pong.x-pong.r<padL.x+padL.w && pong.y>padL.y && pong.y<padL.y+padL.h)pong.vx=Math.abs(pong.vx);
+if(pong.x+pong.r>padR.x && pong.y>padR.y && pong.y<padR.y+padR.h)pong.vx=-Math.abs(pong.vx);
+if(pong.x-pong.r<0){pongR++;resetPong();}
+if(pong.x+pong.r>pongCanvas.width){pongL++;resetPong();}
+}
+function pongDraw(){pongCtx.fillStyle="#000";pongCtx.fillRect(0,0,pongCanvas.width,pongCanvas.height);pongCtx.fillStyle="#fff";pongCtx.fillRect(padL.x,padL.y,padL.w,padL.h);pongCtx.fillRect(padR.x,padR.y,padR.w,padR.h);pongCtx.beginPath();pongCtx.arc(pong.x,pong.y,pong.r,0,Math.PI*2);pongCtx.fill();pongCtx.setLineDash([6,6]);pongCtx.strokeStyle="#444";pongCtx.lineWidth=2;pongCtx.beginPath();pongCtx.moveTo(pongCanvas.width/2,0);pongCtx.lineTo(pongCanvas.width/2,pongCanvas.height);pongCtx.stroke();pongCtx.setLineDash([]);}
+window.addEventListener("keydown",e=>{pongKeys[e.key]=true;});
+window.addEventListener("keyup",e=>{pongKeys[e.key]=false;});
+$("#btnPong").onclick=()=>{pongL=0;pongR=0;resetPong();}
+resetPong();
+
+// ========== 扫雷 ==========
+const mineCanvas = $("#mineCanvas");
+const mineCtx = mineCanvas.getContext("2d");
+const mineSize = 18;
+const mineW = 10, mineH = 10;
+let mineGrid, mineRevealed, mineFlag, mineGameOver, mineWin;
+let mineCount = 12;
+function resetMine(){
+    mineGameOver = false; mineWin = false;
+    mineGrid = Array(mineH).fill().map(()=>Array(mineW).fill(0));
+    mineRevealed = Array(mineH).fill().map(()=>Array(mineW).fill(false));
+    mineFlag = Array(mineH).fill().map(()=>Array(mineW).fill(false));
+    let placed = 0;
+    while(placed < mineCount){
+        let rx = Math.floor(Math.random()*mineW);
+        let ry = Math.floor(Math.random()*mineH);
+        if(mineGrid[ry][rx]!=-1){
+            mineGrid[ry][rx] = -1;
+            placed++;
+        }
+    }
+    for(let y=0;y<mineH;y++){
+        for(let x=0;x<mineW;x++){
+            if(mineGrid[y][x]===-1)continue;
+            let c=0;
+            for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+                let ny=y+dy,nx=x+dx;
+                if(ny>=0&&ny<mineH&&nx>=0&&nx<mineW&&mineGrid[ny][nx]===-1)c++;
+            }
+            mineGrid[y][x]=c;
+        }
+    }
+}
+function mineOpen(x,y){
+    if(mineGameOver||mineRevealed[y][x]||mineFlag[y][x])return;
+    mineRevealed[y][x]=true;
+    if(mineGrid[y][x]===-1){mineGameOver=true;return;}
+    if(mineGrid[y][x]===0){
+        for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+            let ny=y+dy,nx=x+dx;
+            if(ny>=0&&ny<mineH&&nx>=0&&nx<mineW)mineOpen(nx,ny);
+        }
+    }
+    let unrevealedMines=0;
+    for(let yy=0;yy<mineH;yy++)for(let xx=0;xx<mineW;xx++){
+        if(!mineRevealed[yy][xx])unrevealedMines++;
+    }
+    if(unrevealedMines===mineCount)mineWin=true;
+}
+mineCanvas.onclick = e=>{
+    if(mineGameOver||mineWin)return;
+    const rect = mineCanvas.getBoundingClientRect();
+    let mx = Math.floor((e.clientX-rect.left)/mineSize);
+    let my = Math.floor((e.clientY-rect.top)/mineSize);
+    if(mx>=0&&mx<mineW&&my>=0&&my<mineH)mineOpen(mx,my);
+}
+mineCanvas.oncontextmenu = e=>{
+    e.preventDefault();
+    if(mineGameOver||mineWin)return;
+    const rect = mineCanvas.getBoundingClientRect();
+    let mx = Math.floor((e.clientX-rect.left)/mineSize);
+    let my = Math.floor((e.clientY-rect.top)/mineSize);
+    if(mx>=0&&mx<mineW&&my>=0&&my<mineH&&!mineRevealed[my][mx]){
+        mineFlag[my][mx]=!mineFlag[my][mx];
+    }
+}
+function drawMine(){
+    mineCtx.fillStyle="#222";
+    mineCtx.fillRect(0,0,mineCanvas.width,mineCanvas.height);
+    for(let y=0;y<mineH;y++){
+        for(let x=0;x<mineW;x++){
+            let px = x*mineSize, py = y*mineSize;
+            if(mineRevealed[y][x]){
+                mineCtx.fillStyle="#444";
+                mineCtx.fillRect(px,py,mineSize-1,mineSize-1);
+                let v = mineGrid[y][x];
+                if(v===-1){
+                    mineCtx.fillStyle="#f44";
+                    mineCtx.beginPath();mineCtx.arc(px+mineSize/2,py+mineSize/2,6,0,Math.PI*2);mineCtx.fill();
+                }else if(v>0){
+                    mineCtx.fillStyle="#fff";
+                    mineCtx.font="bold 12px system-ui";
+                    mineCtx.textAlign="center";
+                    mineCtx.fillText(v,px+mineSize/2,py+mineSize/2+4);
+                }
+            }else{
+                mineCtx.fillStyle="#666";
+                mineCtx.fillRect(px,py,mineSize-1,mineSize-1);
+                if(mineFlag[y][x]){
+                    mineCtx.fillStyle="#ff4";
+                    mineCtx.font="bold 14px system-ui";
+                    mineCtx.textAlign="center";
+                    mineCtx.fillText("🚩",px+mineSize/2,py+mineSize/2+4);
+                }
+            }
+        }
+    }
+    if(mineGameOver){
+        mineCtx.fillStyle="rgba(0,0,0,0.7)";
+        mineCtx.fillRect(0,0,mineCanvas.width,mineCanvas.height);
+        mineCtx.fillStyle="#f44";
+        mineCtx.font="bold 18px system-ui";
+        mineCtx.textAlign="center";
+        mineCtx.fillText("踩雷了",mineCanvas.width/2,mineCanvas.height/2);
+    }
+    if(mineWin){
+        mineCtx.fillStyle="rgba(0,0,0,0.7)";
+        mineCtx.fillRect(0,0,mineCanvas.width,mineCanvas.height);
+        mineCtx.fillStyle="#4f4";
+        mineCtx.font="bold 18px system-ui";
+        mineCtx.textAlign="center";
+        mineCtx.fillText("胜利！",mineCanvas.width/2,mineCanvas.height/2);
+    }
+}
+$("#btnMine").onclick=resetMine;
+resetMine();
+
+// ========== 接水果 ==========
+const fruitCanvas = $("#fruitCanvas");
+const fruitCtx = fruitCanvas.getContext("2d");
+let scoreFruit=0,fruitOver=false;
+let fruitPaddle={x:fruitCanvas.width/2-35,y:fruitCanvas.height-20,w:70,h:12};
+let fruits=[];
+let fruitTimer=0;
+function resetFruit(){
+    scoreFruit=0;fruitOver=false;fruits=[];fruitTimer=0;
+    fruitPaddle.x=fruitCanvas.width/2-35;
+    $("#scoreFruit").textContent=scoreFruit;
+}
+function spawnFruit(){
+    let types = ["#f44","#4f4","#ff4","#44f"];
+    fruits.push({
+        x:Math.random()*(fruitCanvas.width-20),
+        y:-20,
+        r:10,
+        color:types[Math.floor(Math.random()*types.length)],
+        spd:2+Math.random()*2
+    })
+}
+function fruitUpdate(){
+    if(fruitOver)return;
+    fruitTimer++;
+    if(fruitTimer>40){fruitTimer=0;spawnFruit();}
+    for(let i=fruits.length-1;i>=0;i--){
+        let f=fruits[i];
+        f.y+=f.spd;
+        if(f.y>fruitCanvas.height){
+            fruits.splice(i,1);
+            fruitOver=true;
+            continue;
+        }
+        if(f.x+f.r>fruitPaddle.x && f.x-f.r<fruitPaddle.x+fruitPaddle.w && f.y+f.r>fruitPaddle.y){
+            fruits.splice(i,1);
+            scoreFruit+=10;
+            $("#scoreFruit").textContent=scoreFruit;
+        }
+    }
+}
+function fruitDraw(){
+    fruitCtx.fillStyle="#000";
+    fruitCtx.fillRect(0,0,fruitCanvas.width,fruitCanvas.height);
+    fruitCtx.fillStyle="#4af";
+    fruitCtx.fillRect(fruitPaddle.x,fruitPaddle.y,fruitPaddle.w,fruitPaddle.h);
+    fruits.forEach(f=>{
+        fruitCtx.fillStyle=f.color;
+        fruitCtx.beginPath();
+        fruitCtx.arc(f.x,f.y,f.r,0,Math.PI*2);
+        fruitCtx.fill();
+    })
+    if(fruitOver){
+        fruitCtx.fillStyle="rgba(0,0,0,0.7)";
+        fruitCtx.fillRect(0,0,fruitCanvas.width,fruitCanvas.height);
+        fruitCtx.fillStyle="#fff";
+        fruitCtx.font="bold 18px system-ui";
+        fruitCtx.textAlign="center";
+        fruitCtx.fillText("漏接！游戏结束",fruitCanvas.width/2,fruitCanvas.height/2);
+    }
+}
+document.addEventListener("keydown",e=>{
+    if(e.key.toLowerCase()==="a"&&fruitPaddle.x>0)fruitPaddle.x-=8;
+    if(e.key.toLowerCase()==="d"&&fruitPaddle.x+fruitPaddle.w<fruitCanvas.width)fruitPaddle.x+=8;
+})
+$("#btnFruit").onclick=resetFruit;
+resetFruit();
+
+// ========== 猜数字 ==========
+const guessCanvas = $("#guessCanvas");
+const guessCtx = guessCanvas.getContext("2d");
+let targetNum, guessInput, guessMsg, guessEnd;
+function resetGuess(){
+    targetNum = Math.floor(Math.random()*100)+1;
+    guessInput = "";
+    guessMsg = "1-100，输入数字猜";
+    guessEnd=false;
+}
+guessCanvas.onclick = e=>{
+    if(guessEnd)return;
+    const rect = guessCanvas.getBoundingClientRect();
+    let gx = e.clientX-rect.left;
+    let gy = e.clientY-rect.top;
+    if(gy>140&&gy<180&&gx>20&&gx<200){
+        let g = parseInt(guessInput);
+        if(isNaN(g)){guessMsg="请输入有效数字";}
+        else if(g === targetNum){guessMsg="🎉猜对了！"+targetNum;guessEnd=true;}
+        else if(g>targetNum){guessMsg="太大了";}
+        else {guessMsg="太小了";}
+    }
+}
+window.addEventListener("keydown",e=>{
+    if(guessEnd)return;
+    if(e.key>="0"&&e.key<="9"){
+        guessInput += e.key;
+        if(guessInput.length>2)guessInput=guessInput.slice(-2);
+    }
+    if(e.key==="Backspace")guessInput=guessInput.slice(0,-1);
+})
+function drawGuess(){
+    guessCtx.fillStyle="#111";
+    guessCtx.fillRect(0,0,guessCanvas.width,guessCanvas.height);
+    guessCtx.fillStyle="#fff";
+    guessCtx.font="16px system-ui";
+    guessCtx.textAlign="center";
+    guessCtx.fillText(guessMsg,guessCanvas.width/2,60);
+    guessCtx.fillStyle="#224";
+    guessCtx.fillRect(20,90,180,30);
+    guessCtx.fillStyle="#fff";
+    guessCtx.font="20px system-ui";
+    guessCtx.fillText(guessInput,guessCanvas.width/2,112);
+    guessCtx.fillStyle="#242";
+    guessCtx.fillRect(20,140,180,35);
+    guessCtx.fillStyle="#fff";
+    guessCtx.font="16px system-ui";
+    guessCtx.fillText("确认",guessCanvas.width/2,163);
+}
+$("#btnGuess").onclick=resetGuess;
+resetGuess();
+
+// ========== 主循环：只渲染当前激活游戏 ==========
+function loop(){
+  if(activeGameId==="plane"){planeUpdate();planeDraw();}
+  if(activeGameId==="tet"){tetUpdate();tetDraw();}
+  if(activeGameId==="snake"){snakeUpdate();snakeDraw();}
+  if(activeGameId==="brick"){brickUpdate();brickDraw();}
+  if(activeGameId==="g2048"){draw2048();}
+  if(activeGameId==="tic"){drawTic();}
+  if(activeGameId==="pong"){pongUpdate();pongDraw();}
+  if(activeGameId==="mine"){drawMine();}
+  if(activeGameId==="fruit"){fruitUpdate();fruitDraw();}
+  if(activeGameId==="guess"){drawGuess();}
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>
